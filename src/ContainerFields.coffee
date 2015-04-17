@@ -52,23 +52,23 @@ addFields = (fields) ->
       if opts?.path?.length then return @_applyToSubfield("isValid", opts)
       if not @_hasChanged then return @_valid
       # reset the errors array
-      oldErrors = @errors
-      @errors = []
+      oldErrors = @_errors
+      @_errors = []
       value = undefined
       _.forEach @getFields(), (x) =>
-        unless x.isValid() then @errors = [@errorMessages.invalid]
-      if not @errors.length
+        unless x.isValid() then @_errors = [@errorMessages.invalid]
+      if not @_errors.length
         value = @_querySubfields("getClean")
         # run custom validation on the cleaned data
         value = @validate(value)
       # try again to get cleaned data if @validate modified subfields
       _.forEach @getFields(), (x) =>
-        unless x.isValid() then @errors = [@errorMessages.invalid]
-      valid = not @errors.length
+        unless x.isValid() then @_errors = [@errorMessages.invalid]
+      valid = not @_errors.length
       if valid then value = @_querySubfields("getClean")
-      @clean = if valid then value else undefined
-      if valid != @_valid or (not valid and not _.isEqual(oldErrors, @errors))
-        @emit("onValidChanged", valid: valid, errors: @errors)
+      @_clean = if valid then value else undefined
+      if valid != @_valid or (not valid and not _.isEqual(oldErrors, @_errors))
+        @emit("onValidChanged", valid: valid, errors: @_errors)
         @_valid = valid
       @_hasChanged = false
       return valid
@@ -94,7 +94,7 @@ addFields = (fields) ->
       if @_fields && @_fields.length then @value = @getValue()
       @_fields = []
     throwValidationError: () ->
-      if not @isValid() then throw @errors
+      if not @isValid() then throw @_errors
     getValue: (opts) ->
       opts = @_procOpts(opts)
       if opts?.path?.length then return @_applyToSubfield("getValue", opts)
@@ -104,7 +104,7 @@ addFields = (fields) ->
       opts = @_procOpts(opts)
       if opts?.path?.length then return @_applyToSubfield("getClean", opts)
       @throwValidationError()
-      return @clean
+      return @_clean
     toJSON: (opts) ->
       opts = @_procOpts(opts)
       if opts?.path?.length then return @_applyToSubfield("toJSON", opts)
@@ -114,11 +114,11 @@ addFields = (fields) ->
       opts = @_procOpts(opts)
       if opts?.path?.length then return @_applyToSubfield("getErrors", opts)
       @isValid()
-      if not @errors.length then return null
+      if not @_errors.length then return null
       return @_querySubfields("getErrors")
     _addField: (definition, value) ->
       definition = _.clone(definition)
-      definition.parent = this
+      definition._parent = this
       if value? then definition.value = value
       # child pushes itself onto parent
       field = fields.genField(definition, this, value)
@@ -188,8 +188,8 @@ addFields = (fields) ->
       if subfield
         end.push(subfield.name)
       # if no parent, then the path is siply the empty list
-      if @parent
-        return @parent.getPath(this).concat(end)
+      if @_parent
+        return @_parent.getPath(this).concat(end)
       else
         return end
 
@@ -234,7 +234,7 @@ addFields = (fields) ->
     validate: (value) ->
       if _.isEmpty(value) && @required
         message = @errorMessages.required
-        @errors = [utils.interpolate(message, [@schema.name || (_.isString(@schema.field) && @schema.field.slice(0,-5)) || "item"])]
+        @_errors = [utils.interpolate(message, [@schema.name || (_.isString(@schema.field) && @schema.field.slice(0,-5)) || "item"])]
         return value
     addField: (key, value) ->
       ### add the field at key with value ###
@@ -301,15 +301,15 @@ addFields = (fields) ->
     validate: (value) ->
       if not value.length && @required
         message = @errorMessages.required
-        @errors = [utils.interpolate(message, [@schema.name || (_.isString(@schema.field) && @schema.field.slice(0,-5)) || "item"])]
+        @_errors = [utils.interpolate(message, [@schema.name || (_.isString(@schema.field) && @schema.field.slice(0,-5)) || "item"])]
         return value
     getPath: (subfield) ->
       end = []
       if subfield
         end.push(@getFields().indexOf(subfield))
       # if no parent, then the path is siply the empty list
-      if @parent
-        return @parent.getPath(this).concat(end)
+      if @_parent
+        return @_parent.getPath(this).concat(end)
       else
         return end
 

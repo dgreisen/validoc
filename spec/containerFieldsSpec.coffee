@@ -15,7 +15,7 @@ describe "ListField", ->
     expect(@field.getFields().length).toBe(2)
     expect(@field.getFields()[0].getValue()).toEqual("hello")
     expect(@field.getFields()[1].getValue()).toEqual("world")
-    expect(@field.getFields()[0].parent).toBe(@field)
+    expect(@field.getFields()[0]._parent).toBe(@field)
 
   it "should generate path for subfield from index", ->
     expect(@field.getFields()[0].getPath()).toEqual([0])
@@ -59,7 +59,7 @@ describe "ListField", ->
   it "should return the proper value when getValue() called, even when it hasn't finished creating all subfields", ->
     @field = new fields.ListField(name:"test", schema: @subSchema)
     @field.listeners.onFieldAdd = (inSender, inEvent) =>
-      if inSender then expect(inEvent.originator.parent.getValue()).toEqual(@vals)
+      if inSender then expect(inEvent.originator._parent.getValue()).toEqual(@vals)
     @field.setValue(@vals)
 
   xit "should return an empty list if value passed is undefined; it should return null if value passed is null", ->
@@ -81,7 +81,7 @@ describe "ContainerField", ->
     expect(@field.getFields()[1] instanceof fields.IntegerField).toBe(true)
     expect(@field.getFields()[0].getValue()).toEqual("hello world")
     expect(@field.getFields()[1].getValue()).toEqual(5)
-    expect(@field.getFields()[0].parent).toBe(@field)
+    expect(@field.getFields()[0]._parent).toBe(@field)
 
   it "should generate path for subfield from name", ->
     expect(@field.getFields()[0].getPath()).toEqual(["sub"])
@@ -118,7 +118,7 @@ describe "HashField", ->
   it "should create as many subfields as there are vals in the values object; subfield should have proper value and parent should be HashField", ->
     expect(@field.getFields()[0].getValue()).toEqual("world")
     expect(@field.getFields()[1].getValue()).toEqual("moon")    
-    expect(@field.getFields()[0].parent).toBe(@field)
+    expect(@field.getFields()[0]._parent).toBe(@field)
 
   it "should generate path for subfield from key", ->
     expect(@field.getFields()[0].getPath()).toEqual(["hello"])
@@ -152,7 +152,7 @@ describe "HashField", ->
   it "should return the proper value when getValue() called, even when it hasn't finished creating all subfields", ->
     @field = new fields.HashField(name:"test", schema: @subSchema)
     @field.listeners.onFieldAdd = (inSender, inEvent) =>
-      if inSender then expect(inEvent.originator.parent.getValue()).toEqual(@vals)
+      if inSender then expect(inEvent.originator._parent.getValue()).toEqual(@vals)
     @field.setValue(@vals)
 
   xit "should return an empty list if value passed is undefined; it should return null if value passed is null", ->
@@ -194,8 +194,8 @@ describe "ListField Validation", ->
   it "should validate every subfield", ->
     @field.setValue("hi", "0")
     @field.isValid()
-    expect(@field.getField('0').errors.length).toBe(1)
-    expect(@field.getField('1').errors.length).toBe(1)
+    expect(@field.getField('0')._errors.length).toBe(1)
+    expect(@field.getField('1')._errors.length).toBe(1)
 
 describe "ContainerField Validation", ->
   beforeEach ->

@@ -8,7 +8,7 @@ describe "events", ->
       _bubble: (@event, @args) ->
     }
     @field = new fields.Field()
-    @field.parent = @parent
+    @field._parent = @parent
     spyOn @parent, "_bubble"
 
   it """
@@ -49,7 +49,7 @@ describe "events", ->
     expect(@parent._bubble).not.toHaveBeenCalled()
 
   it "should call any listeners and stop bubbling event if no parent", ->
-    @field.parent = undefined
+    @field._parent = undefined
     @field.listeners = onTestEvent: (inSender, inEvent) ->
     spyOn @field.listeners, "onTestEvent"
     @field.emit "onTestEvent", a:1, b:2
@@ -132,7 +132,7 @@ describe "validation", ->
   it "should not validate if required and no value", ->
     @expect(@field.value).toBe(undefined)
     @expect(@field.isValid()).toBe(false)
-    @expect(@field.errors).toEqual(['This field is required.'])
+    @expect(@field._errors).toEqual(['This field is required.'])
     @field.setValue("")
     @expect(@field.isValid()).toBe(false)
     @field.setValue(null)
@@ -142,7 +142,7 @@ describe "validation", ->
     @field.setValue(0)
     @expect(@field.value).toBe(0)
     @expect(@field.isValid()).toBe(true)
-    @expect(@field.errors).toEqual([])
+    @expect(@field._errors).toEqual([])
     
   it "should validate if not required and no value", ->
     @field.required = false
@@ -171,7 +171,7 @@ describe "validation", ->
     @field.isValid()
     expect(@field.validate).toHaveBeenCalled()
 
-  it "should emit a onValidChanged event, with any errors, when its valid status changes or when the errors list changes, but not otherwise", ->
+  it "should emit a onValidChanged event, with any errors, when its valid status changes or when the errors list changes, but not o_therwise", ->
     @field = new fields.CharField(name: "test", minLength:5)
     @field.listeners.onValidChanged = (inSender, inEvent) ->
     spyOn @field.listeners, "onValidChanged"
@@ -212,7 +212,7 @@ describe "field", ->
     parent = 
       _bubble: () ->
     spyOn parent, "_bubble"
-    @field = new fields.IntegerField(name:"test", value: 5, minValue: 0, parent: parent)
+    @field = new fields.IntegerField(name:"test", value: 5, minValue: 0, _parent: parent)
     expect(parent._bubble.calls[0].args[0]).toBe("onFieldAdd")
     expect(parent._bubble.calls[0].args[2].value).toBe(5)
     expect(parent._bubble.calls[1].args[0]).toBe("onValueChanged")

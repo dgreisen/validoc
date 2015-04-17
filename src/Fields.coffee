@@ -15,49 +15,82 @@ ValidationError = utils.ValidationError
 
 class Field
   ###
-  Baseclass for all fields. Fields are defined by a schema. You can override attributes and methods within the schema. For example:
+  Baseclass for all fields. Fields are defined by a schema. 
+  You can override attributes and methods within the schema. 
+  For example:
 
-      var schema = { name: "firstField", field: "Field", required: false };
+      var simpleSchema = { name: "firstField"
+                         , field: "Field"
+                         , required: false
+                         };
 
-  creates a basic field that is not required. This is not particularly useful. But we can create useful fields using subclasses of Field:
+  will create a basic field that is not required.
+  This is not particularly useful.
+  But we can create useful fields using subclasses of Field:
 
-      var schema = { name: "badPasswordField" field: "CharField", maxLength: 8, minLength: 4, widget: "Widgets.PasswordWidget" };
+      var pwSchema = { name: "badPasswordField"
+                     , field: "CharField"
+                     , maxLength: 8
+                     , minLength: 4
+                     , widget: "Widgets.PasswordWidget"
+                     };
 
-  Now we have created a very insecure password field. We have overridden the Charfield's default widget with a password widget.
+  Now we have created a very insecure password field schema.
+  We have overridden the Charfield's default widget with a password widget.
 
-  We can create a raw field instance on the frontend or backend by calling `fields.genField(contactSchema)`. Or we can create a frontend
-  form by using the schema in a widget.Form constructor as the schema attribute.
+  We create a Field instance from a schema by calling:
 
-  Attributes:
+      simpleField = validoc.genField(simpleSchema);
 
-    * `clean`: the cleaned widget value accessed via `getClean()`; raises error if invalid; this will be a javascript datatype and 
-    should be used for any calculations, etc. Use the toJSON() method to get a version appropriate for serialization.
-    * `validators`: array of validators; If overriding a parent class, you must include all parent class validators
-    * `errorMessages`: hash of error message codes and keys. You can override any error message by setting a new message for the code.
+  We create a ReactJS widget component from a schema by calling:
+
+      simpleWidget = validoc.genWidget(simpleSchema);
+
+  The following attributes can be specified in the schema.
+  Any defaults can be overridden by subclasses:
+    
+    * `field`: the field type (e.g. CharField, ContainerField) (required)
+    * `name`: the name/identifier for this field (required)
+    * `widget`: widget constructor hash or string name
+       (e.g. { widget: "widget.Widget"}, or simply "widget.Widget")
+       (default: depends on Field type)
+    * `required`: whether the current field is required (default: true)
+    * `default`: the default value of the field.
+      If the value is undefined, the value will be set to the default value.
+
+
+  When you call genField or genWidget,
+  you can specify `value` and `initialValue` as optional 2nd and 3rd 
+  arguments, respectively.
+
+    * `value`: the current value of the field
+    * `initialValue`: the initial value of the field (useful for validation)
+
+  The following attributes can also technically be specified in the schema,
+  but in practice, the should only have to be modified by subclasses:
+
+    * `errorMessages`: hash of error message codes and keys.
+      You can override any error message by setting a new message for the code.
+    * `validators`: array of validators;
+      If overriding a parent class, you must include all ancestor validators
     * `listeners`: hash of listeners of one of the following forms:
       * `'event': (inSender, inEvent) ->`
       * `'event': "handlerMethod"`
       * `'*': "handlerMethod"`
       wildcard will handle all incoming events
-    * `widget`: kind definition for widget to display (eg { kind: "widget.Widget"}, or simply the string name of the widget kind)
-    * `name`: the name/identifier for this field
-    * `required`: whether the current field is required
-    * `value`: the current value of the field. access via `getValue()`
-    * `initial`: the initial value of the field (for validation)
-    * `default`: the default value of the field. if the set value is undefined, the value will be changed to the default value
 
-  Default widget: Widget
+  You are probably doing something wrong if you access an attribute
+  that starts with an underscore. You should **never** directly modify
+  any attribute that starts with an underscore.
   ###
 
-  # the cleaned value accessed via `getClean()`; raises error if invalid; this will be a javascript datatype and should be used for any calculations, etc. Use the toJSON() method to get a version appropriate for serialization.
-  clean: undefined,
-  # a list of errors for this field.
-  errors: [],
-  # list of validators; If overriding a parent class, you must include all parent class validators
-  validators: [],
-  # hash of error messages; If overriding a parent class, you must include all parent class errorMessages
-  errorMessages:
-    required: utils._i('This field is required.')
+  name: undefined
+  # whether the current field is required
+  required: true
+  # the current value of the field
+  # kind definition for widget to display (eg { kind: "widget.Widget"}, or simply the string name of the widget kind)
+  widget: "widgets.Widget",
+
   ###
   hash of listeners of the form
       * `'event': (inSender, inEvent) ->`
@@ -66,15 +99,22 @@ class Field
   wildcard will handle all incoming events
   ###
   listeners: {}
+  # list of validators; If overriding a parent class, you must include all parent class validators
+  validators: [],
+  # hash of error messages; If overriding a parent class, you must include all parent class errorMessages
+  errorMessages:
+    required: utils._i('This field is required.')
+
+  # the cleaned value accessed via `getClean()`;
+  # this will be a javascript value (such as a DateTime) 
+  # that should be used for any calculations, etc.
+  # Use the toJSON() method to get a version appropriate for serialization.
+  _clean: undefined,
+  # a list of errors for this field.
+  _errors: [],
   # parent field, set by parent
-  parent: undefined
-  # kind definition for widget to display (eg { kind: "widget.Widget"}, or simply the string name of the widget kind)
-  widget: "widgets.Widget",
+  _parent: undefined
   # the name/identifier for this field
-  name: undefined
-  # whether the current field is required
-  required: true
-  # the current value of the field
   value: undefined
   # the initial value of the field (for validation)
   initial: undefined
@@ -97,7 +137,7 @@ class Field
     delete @value
     # add this field to its parent's list of subfields (have to do it 
     # here so it can be found when it emits events during construction)
-    if @parent?._fields? then @parent._fields.push(this)
+    if @_parent?._fields? then @_parent._fields.push(this)
     # all fields were sharing the same validators list
     @validators = _.clone(@validators)
     # announce that a new field has been created
@@ -118,7 +158,7 @@ class Field
   getErrors: () ->
     ### get the errors for this field. returns null if no errors. ###
     @isValid()
-    return if @errors.length then @errors else null
+    return if @_errors.length then @_errors else null
   toJavascript: (value) ->
     ###
     First function called in validation process.<br />
@@ -161,17 +201,17 @@ class Field
     ###
     if not @_hasChanged then return @_valid
     # reset the errors array
-    oldErrors = _.clone(@errors)
-    @errors = []
+    oldErrors = _.clone(@_errors)
+    @_errors = []
     # call the various validators
     value = @getValue()
     value = @_catchErrors(@toJavascript, value)
-    value = @_catchErrors(@validate, value) if (!@errors.length)
-    value = @runValidators(value) if (!@errors.length)
-    valid = !@errors.length
-    @clean = if valid then value else undefined
-    if valid != @_valid or not valid and not _.isEqual(oldErrors, @errors)
-      @emit("onValidChanged", valid: valid, errors: @errors)
+    value = @_catchErrors(@validate, value) if (!@_errors.length)
+    value = @runValidators(value) if (!@_errors.length)
+    valid = !@_errors.length
+    @_clean = if valid then value else undefined
+    if valid != @_valid or not valid and not _.isEqual(oldErrors, @_errors)
+      @emit("onValidChanged", valid: valid, errors: @_errors)
       @_valid = valid
     @_hasChanged = false
     return valid
@@ -185,7 +225,7 @@ class Field
     catch e
       message = if @errorMessages[e.code]? then @errorMessages[e.code] else e.message
       message = utils.interpolate(message, e.params) if e.params?
-      @errors.push(message)
+      @_errors.push(message)
     return value
 
   getClean: (opts) ->
@@ -195,8 +235,8 @@ class Field
     ###
     valid = @isValid(opts)
     if not valid
-      throw @errors
-    return @clean
+      throw @_errors
+    return @_clean
   toJSON: (opts) ->
     ###
     return the field's cleaned data in serializable form if there are no errors. throws an error if there are validation errors.  
@@ -229,8 +269,8 @@ class Field
     [] points to {parent: {child1: hello, child2: [the, quick, brown, fox]}}
     ###
     # if no parent, then the path is siply the empty list
-    if @parent
-      return @parent.getPath(this)
+    if @_parent
+      return @_parent.getPath(this)
     else
       return []
   getField: (path) ->
@@ -251,8 +291,8 @@ class Field
     ### handle bubbling to parent ###
     for listener in @_getProtoListeners(eventName, true)
       if listener.apply(this, [inSender, inEvent]) == true then return
-    if @parent
-      @parent._bubble(eventName, this, inEvent)
+    if @_parent
+      @_parent._bubble(eventName, this, inEvent)
 
   _getProtoListeners: (eventName, start) ->
     ### handle bubbling up the prototype chain ###
@@ -453,7 +493,7 @@ class ChoiceField extends Field
   errorMessages:
     invalidChoice: utils._i('Select a valid choice. %(value)s is not one of the available choices.')
   constructor: (opts) ->
-    if opts.choices then this.choices = opts.choices
+    if opts.choices then @choices = opts.choices
     @setChoices(_.clone(@choices))
     super(opts)
 
@@ -497,7 +537,7 @@ fields =
   # generate a field from its schema
   genField: (schema, parent, value) ->
     schema = _.clone(schema)
-    schema.parent = parent
+    schema._parent = parent
     if value? then schema.value = value
     field = @getField(schema.field)
     if not field then throw Error("Unknown field: "+ schema.field)

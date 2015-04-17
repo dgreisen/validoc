@@ -88,7 +88,7 @@ addFields = (fields) ->
       invalid: utils._i('Enter a U.S. state or territory.')
     validate: (value) ->
       value = super(value)
-      if @errors.length then return value
+      if @_errors.length then return value
       value = utils.strip(value).toLowerCase()
       value = us_states.STATES_NORMALIZED[value]
       if value
