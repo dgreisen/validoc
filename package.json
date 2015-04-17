@@ -1,0 +1,22 @@
+{
+  "name": "ValiDoc",
+  "version": "0.4.0",
+  "description": "For all your document validation needs",
+  "author": "David Greisen <dgreisen@gmail.com>",
+  "scripts": {
+    "test": "cake test",
+    "build": "cake build"
+  },
+  "main": "lib/index.js",
+  "dependencies": {
+    "underscore": "1.7.0"
+  },
+  "devDependencies": {
+    "jasmine-node": "1.14.5"
+  },
+  "licenses": [{
+    "type": "Apache 2.0",
+    "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+  }],
+  "engine": "node >= 0.10.0"
+}
