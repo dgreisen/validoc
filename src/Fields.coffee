@@ -40,14 +40,16 @@ class Field
 
   We create a Field instance from a schema by calling:
 
-      simpleField = validoc.genField(simpleSchema);
+      simpleField = validoc.genField(simpleSchema, opts);
 
-  We create a ReactJS widget component from a schema by calling:
+  `opts` is an optional hash explained later.
 
-      simpleWidget = validoc.genWidget(simpleSchema);
-
+  Your schema is a JavaScript object,
+  so it can define both attributes and methods for the resulting Field.
+  While in Django you would have to create a custom Field subclass for a one-off field with custom validation,
+  in ValiDoc, you can simply override the clean() method.
+  You can then optionally turn that schema into its own reusable field if you need to use it again later Any defaults can be overridden by subclasses
   The following attributes can be specified in the schema.
-  Any defaults can be overridden by subclasses:
     
     * `field`: the field type (e.g. CharField, ContainerField) (required)
     * `name`: the name/identifier for this field (required)
@@ -58,14 +60,6 @@ class Field
     * `default`: the default value of the field.
       If the value is undefined, the value will be set to the default value.
 
-
-  When you call genField or genWidget,
-  you can specify `value` and `initialValue` as optional 2nd and 3rd 
-  arguments, respectively.
-
-    * `value`: the current value of the field
-    * `initialValue`: the initial value of the field (useful for validation)
-
   The following attributes can also technically be specified in the schema,
   but in practice, the should only have to be modified by subclasses:
 
@@ -73,11 +67,19 @@ class Field
       You can override any error message by setting a new message for the code.
     * `validators`: array of validators;
       If overriding a parent class, you must include all ancestor validators
-    * `listeners`: hash of listeners of one of the following forms:
-      * `'event': (inSender, inEvent) ->`
-      * `'event': "handlerMethod"`
-      * `'*': "handlerMethod"`
-      wildcard will handle all incoming events
+
+  Just like with django forms, you can create a bound or unbound field.
+  A bound field has been bound to data that needs to be validated.
+  An unbound field has no data to validate, 
+  and is usually used to generate a user interface.
+  In ValiDoc, you bind a field to data by passing a `value` in the opts.
+  One of the major shortcomings of Django forms is that you cannot validate
+  data transitions, only data states. ValiDoc solves this by letting you pass
+  an `initialValue`, in addition to `value`. Your `clean` method 
+
+    * `value`: the current value of the field
+    * `initialValue`: the initial value of the field (useful for custom validation)
+
 
   You are probably doing something wrong if you access an attribute
   that starts with an underscore. You should **never** directly modify
@@ -90,15 +92,9 @@ class Field
   # the current value of the field
   # kind definition for widget to display (eg { kind: "widget.Widget"}, or simply the string name of the widget kind)
   widget: "widgets.Widget",
+  # the default value of the field. if the set value is undefined, the value will changed to the default value
+  default: undefined
 
-  ###
-  hash of listeners of the form
-      * `'event': (inSender, inEvent) ->`
-      * `'event': "handlerMethod"`
-      * `'*': "handlerMethod"`
-  wildcard will handle all incoming events
-  ###
-  listeners: {}
   # list of validators; If overriding a parent class, you must include all parent class validators
   validators: [],
   # hash of error messages; If overriding a parent class, you must include all parent class errorMessages
@@ -115,50 +111,53 @@ class Field
   # parent field, set by parent
   _parent: undefined
   # the name/identifier for this field
-  value: undefined
+  _value: undefined
   # the initial value of the field (for validation)
-  initial: undefined
-  # the default value of the field. if the set value is undefined, the value will changed to the default value
-  default: undefined
-  constructor: (opts) ->
-    # save an unadulterated copy of opts in @opts
+  _initialValue: undefined
+
+  constructor: (schema, opts, parent) ->
+    if parent?
+      @_parent = parent
+
+    schema ?= {}
     opts ?= {}
-    @opts = _.clone(opts)
-    # compile inherited attributes
+    @_rawSchema = _.clone(schema)
+    @_rawOpts = _.clone(opts)
+
+    schemaErrorMessages = utils.objPop(schema, 'errorMessages') or {}
     @errorMessages = @_walkProto("errorMessages")
-    if opts.errorMessages 
-      _.extend(@errorMessages, opts.errorMessages)
-      delete opts.errorMessages    
-    @listeners = {}
-    # set initial values; 
-    opts.value ?= opts.initial
-    opts.initial ?= opts.value
-    _.extend(this, opts)
-    delete @value
-    # add this field to its parent's list of subfields (have to do it 
-    # here so it can be found when it emits events during construction)
-    if @_parent?._fields? then @_parent._fields.push(this)
-    # all fields were sharing the same validators list
-    @validators = _.clone(@validators)
-    # announce that a new field has been created
-    @emit("onFieldAdd", {schema: @opts, value: opts.value})
-    if @setSchema
-      schema = _.clone(@schema)
-      delete @schema
-      @setSchema(schema, {value: opts.value})
-    #set initial value
-    @setValue(opts.value)
+    _.extend(@errorMessages, schemaErrorMessages)
+
+    schemaValidators = utils.objPop(schema, 'validators') or []
+    @validators = @_walkProto("validators")
+    @validators = @validators.concat(schemaValidators)
+
+    # otherwise all fields would share the same errors lists
+    @_errors = []
+
+    @setSchema(schema)
+
+    @setOpts(opts)
+
   _walkProto: (attr) ->
     ### walks the prototype chain collecting all the values off attr and combining them in one. ###
     sup = @constructor.__super__
     if sup?
-      return _.extend(_.clone(sup._walkProto(attr)), @[attr])
+      if _.isArray(@[attr])
+        return @[attr].concat(sup._walkProto(attr))
+      else
+        return _.extend(sup._walkProto(attr), @[attr])
     else
-      return this[attr]
+      return _.clone(this[attr])
+
   getErrors: () ->
-    ### get the errors for this field. returns null if no errors. ###
+    ### get the errors for this field. ###
     @isValid()
-    return if @_errors.length then @_errors else null
+    if @_errors.length
+      return @_errors 
+    else
+      return []
+
   toJavascript: (value) ->
     ###
     First function called in validation process.<br />
@@ -167,11 +166,8 @@ class Field
     this function should be able to convert from any type that a widget might supply to the type needed for validation
     ###
     return value
-  # for keeping track of whether to emit the validChanged event
-  _valid: false
-  # whether we need to run the full validation process
-  _hasChanged: true
-  validate: (value) ->
+
+  validate: (value, initialValue, opts) ->
     ###
     Second function called in validation process.<br />
     Any custom validation logic should be placed here. receives the input, `value`, from `toJavascript`'s output.
@@ -183,85 +179,84 @@ class Field
     if (validators.isEmpty(value) && @required)
       throw ValidationError(@errorMessages.required, "required")
     return value
-  runValidators: (value) ->
+
+  runValidators: (value, initialValue, opts) ->
     ###
     Third function called in validation process.<br />
     You should not have to override this function. simply add validators to @validators.
     ###
     if (validators.isEmpty(value)) then return
     for v in @validators
-      @_catchErrors(v, value)
+      @_catchErrors(v, value, opts)
     return value;
-  isValid: (opts) ->
+
+  isValid: () ->
     ### primary validation function<br />
-    calls all other validation subfunctions and emits a `validChanged` event if the valid state has changed.
+    calls all other validation subfunctions.
     returns `true` or `false`
-    only precesses the full validation if hasChanged is true, which is only true if something has changed since the last call to isValid()
-    emits the `validChanged` event if the valid state has changed.
     ###
-    if not @_hasChanged then return @_valid
-    # reset the errors array
-    oldErrors = _.clone(@_errors)
-    @_errors = []
+    if @_valid? then return @_valid
     # call the various validators
     value = @getValue()
-    value = @_catchErrors(@toJavascript, value)
-    value = @_catchErrors(@validate, value) if (!@_errors.length)
-    value = @runValidators(value) if (!@_errors.length)
+    initialValue = @getInitialValue()
+    value = @_catchErrors(@toJavascript, value, initialValue, @opts)
+    value = @_catchErrors(@validate, value, initialValue, @opts) if (!@_errors.length)
+    value = @runValidators(value, initialValue, @opts) if (!@_errors.length)
     valid = !@_errors.length
     @_clean = if valid then value else undefined
-    if valid != @_valid or not valid and not _.isEqual(oldErrors, @_errors)
-      @emit("onValidChanged", valid: valid, errors: @_errors)
-      @_valid = valid
-    @_hasChanged = false
+    @_valid = valid
     return valid
-  _catchErrors: (fn, value) ->
+
+  _catchErrors: (fn, value, initialValue, opts) ->
     ### helper function for running an arbitrary function, capturing errors and placing in error array ###
     try
-      if fn instanceof Function
-        value = fn.call(this, value)
+      if _.isFunction(fn)
+        value = fn.call(this, value, initialValue, opts)
       else
-        value = fn.validate(value)
+        value = fn.validate(value, initialValue, opts)
     catch e
       message = if @errorMessages[e.code]? then @errorMessages[e.code] else e.message
       message = utils.interpolate(message, e.params) if e.params?
       @_errors.push(message)
     return value
 
-  getClean: (opts) ->
+  getClean: () ->
     ###
-    return the fild's cleaned data if there are no errors. throws an error if there are validation errors.
-    you will likely have to override this in Field subclasses
+    return the field's cleaned data if there are no errors.
+    throws an error if there are validation errors.
+    you should not need to override this in Field subclasses
     ###
-    valid = @isValid(opts)
-    if not valid
-      throw @_errors
+    @_throwErrorIfInvalid()
     return @_clean
-  toJSON: (opts) ->
+
+  toJSON: () ->
     ###
-    return the field's cleaned data in serializable form if there are no errors. throws an error if there are validation errors.  
+    return the field's cleaned data in serializable form if there are no errors.
+    throws an error if there are validation errors.
     you might have to override this in Field subclasses.
     ###
-    return @getClean(opts)
-  setRequired: (val) ->
-    if val != @required
-      @_hasChanged = true
-      @required = val
-      @emit("onRequiredChanged", {required: @required})
-  setValue: (val, opts) ->
-    ### You should not have to override this in Field subclasses ###
-    if val == undefined then val = @default
-    if val != @value
-      @_hasChanged = true
-      origValue = @value
-      @value = val;
-      @emit("onValueChanged", value: @getValue(), original: origValue)
+    return @getClean()
+
+  setOpts: (opts) ->
+    @_initialValue = utils.objPop(opts, 'initialValue') or opts.value
+    @_value = utils.objPop(opts, 'value')
+    @_value ?= _.clone(@default)
+    @opts = _.clone(opts)
+
+  setSchema: (schema) ->
+    _.extend(@, schema)
+
   getValue: () ->
     ### You should not have to override this in Field subclasses ###
-    return @value;
+    return @_value
+
+  getInitialValue: () ->
+    return @_initialValue
+
   getPath: () ->
     ###
-    Get an array of the unique path to the field. A ListField's subfields are denoted by an integer representing the index of the subfield.
+    Get an array of the unique path to the field.
+    A ListField's subfields are denoted by an integer representing the index of the subfield.
     A ContainerField's subfields are denoted by a string or integer representing the key of the subfield.
     Example:
     {parent: {child1: hello, child2: [the, quick, brown, fox]}}
@@ -273,38 +268,13 @@ class Field
       return @_parent.getPath(this)
     else
       return []
+
   getField: (path) ->
     ### get a field given a path ###
-    return if path.length > 0 then undefined else this
-  emit: (eventName, inEvent) ->
-    ###
-    emit an event that bubbles up the field tree.
-    
-    * `eventName`: name of the event to emit
-    * `inEvent`: optional hash of data to send with the event
-    ###
-    inEvent ?= {}
-    inEvent.originator = this
-    @_bubble(eventName, null, inEvent)
+    return if path.length > 0 then undefined else this      
 
-  _bubble: (eventName, inSender, inEvent) ->
-    ### handle bubbling to parent ###
-    for listener in @_getProtoListeners(eventName, true)
-      if listener.apply(this, [inSender, inEvent]) == true then return
-    if @_parent
-      @_parent._bubble(eventName, this, inEvent)
-
-  _getProtoListeners: (eventName, start) ->
-    ### handle bubbling up the prototype chain ###
-    sup = if start then @constructor.prototype else @constructor.__super__
-    listener = @listeners[eventName] or @listeners["*"]
-    listener = if listener instanceof Function then listener else this[listener]
-    listener = if listener? then [listener] else []
-    if sup?
-      return sup._getProtoListeners(eventName).concat(listener)
-    else
-      return listener
-      
+  _throwErrorIfInvalid: () ->
+    if not @isValid() then throw @_errors
 
 
 class CharField extends Field
@@ -321,8 +291,8 @@ class CharField extends Field
   maxLength: undefined
   ### The minimum length of the string (optional) ###
   minLength: undefined
-  constructor: (opts) ->
-    super(opts)
+  constructor: (schema, opts, parent) ->
+    super(schema, opts, parent)
     if @maxLength?
       @validators.push(new validators.MaxLengthValidator(@maxLength))
     if @minLength?
@@ -351,8 +321,8 @@ class IntegerField extends Field
   errorMessages: {
     invalid: utils._i('Enter a whole number.')
   },
-  constructor: (opts) ->
-    super(opts)
+  constructor: (schema, opts, parent) ->
+    super(schema, opts, parent)
     if @maxValue?
       @validators.push(new validators.MaxValueValidator(@maxValue))
     if @minValue?
@@ -388,8 +358,8 @@ class FloatField extends IntegerField
   # @protected
   errorMessages:
     invalid: utils._i('Enter a number.')
-  constructor: (opts) ->
-    super(opts)
+  constructor: (schema, opts, parent) ->
+    super(schema, opts, parent)
     if @maxDecimals?
       @validators.push(new validators.MaxDecimalPlacesValidator(@maxDecimals))
     if @minDecimals?
@@ -415,8 +385,8 @@ class RegexField extends Field
   # the error message to display when the regex fails
   errorMessage: undefined
   # @protected
-  constructor: (opts) ->
-    super(opts)
+  constructor: (schema, opts, parent) ->
+    super(schema, opts, parent)
     @validators.push(new validators.RegexValidator(@regex))
     if @errorMessage
       @errorMessages.invalid = @errorMessage
@@ -492,10 +462,10 @@ class ChoiceField extends Field
   choices: []
   errorMessages:
     invalidChoice: utils._i('Select a valid choice. %(value)s is not one of the available choices.')
-  constructor: (opts) ->
+  constructor: (schema, opts, parent) ->
     if opts.choices then @choices = opts.choices
     @setChoices(_.clone(@choices))
-    super(opts)
+    super(schema, opts, parent)
 
   setChoices: (val) ->
     choices = {};
@@ -527,7 +497,7 @@ fields =
   BooleanField: BooleanField
   NullBooleanField: NullBooleanField
   ChoiceField: ChoiceField
-  # get a variable from the global variable, g, identified by a dot-delimited string
+  # get a variable from the global variable, identified by a dot-delimited string
   getField: (path) ->
     path = path.split(".")
     out = this
@@ -535,13 +505,11 @@ fields =
       out = out[part]
     return out
   # generate a field from its schema
-  genField: (schema, parent, value) ->
+  genField: (schema, opts, parent) ->
     schema = _.clone(schema)
-    schema._parent = parent
-    if value? then schema.value = value
     field = @getField(schema.field)
     if not field then throw Error("Unknown field: "+ schema.field)
-    return new field(schema)
+    return new field(schema, opts, parent)
 
 
 if window?

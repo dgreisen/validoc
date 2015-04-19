@@ -220,7 +220,7 @@ validators =
   MinLengthValidator: MinLengthValidator
   MaxLengthValidator: MaxLengthValidator
   isEmpty: isEmpty
-  
+
 if window?
   window.validators = validators
 else if exports?
