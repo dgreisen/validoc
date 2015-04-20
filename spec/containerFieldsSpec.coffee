@@ -1,7 +1,9 @@
 if exports?
-  fields = require("../lib/Fields")
-  utils = require("../lib/utils")
+  validoc = require('../lib/validoc')
   _ = require('underscore')
+
+fields = validoc.fields
+utils = validoc.utils
 
 describe "ListField", ->
   beforeEach ->

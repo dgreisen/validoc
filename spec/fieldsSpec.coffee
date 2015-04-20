@@ -1,6 +1,9 @@
 if exports?
-  utils = require("../lib/utils")
-  fields = require("../lib/Fields")
+  validoc = require('../lib/validoc')
+  _ = require('underscore')
+
+fields = validoc.fields
+utils = validoc.utils
 
 describe "class inheritence", ->
   it "should preserve errorMessages of superclass when none are added", ->

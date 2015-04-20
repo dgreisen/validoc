@@ -54,6 +54,7 @@ utils =
   objPop: objPop
   isHash: isHash
 if window?
-  window.utils = utils
+  window.validoc = 
+    utils: utils
 else if exports?
   module.exports = utils

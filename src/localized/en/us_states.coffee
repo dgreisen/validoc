@@ -327,6 +327,10 @@ us_states.STATES_NORMALIZED = {
 }
 
 if window?
-  window.us_states = us_states
+  fields = window.validoc.fields
 else if exports?
-  module.exports = us_states
+  fields = require('../../Fields')
+
+fields.local ?= {}
+fields.local.en ?= {}
+fields.local.en.us_states = us_states

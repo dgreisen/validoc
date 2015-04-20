@@ -7,8 +7,8 @@ if exports?
   validators = require "./Validators"
   _ = require "underscore"
 else if window?
-  utils = window.utils
-  validators = window.validators
+  utils = window.validoc.utils
+  validators = window.validoc.validators
   _ = window._
 
 ValidationError = utils.ValidationError
@@ -513,7 +513,6 @@ fields =
 
 
 if window?
-  window.fields = fields
+  window.validoc.fields = fields
 else if exports?
-  require("./ContainerFields")(fields)
   module.exports = fields

@@ -6,7 +6,7 @@ Validators are small classes that have a `validate` method. the validate method
 if exports?
   utils = require "./utils"
 else if window?
-  utils = window.utils
+  utils = window.validoc.utils
 
 class RegexValidator
   ###
@@ -222,7 +222,7 @@ validators =
   isEmpty: isEmpty
 
 if window?
-  window.validators = validators
+  window.validoc.validators = validators
 else if exports?
   module.exports = validators
   

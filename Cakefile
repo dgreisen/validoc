@@ -5,14 +5,14 @@ fs = require('fs')
 DIR = __dirname
 
 task 'build', 'Build the .js files', (options) ->
-  console.log('Compiling Coffee from src to lib')
-  cp = exec "coffee --compile --output ./lib/ ./src/"
+  console.log('Compiling Coffee from src to lib/validoc')
+  cp = exec "coffee --compile --output ./lib/validoc ./src/"
   cp.stdout.pipe(process.stdout)
   cp.stderr.pipe(process.stderr)
 
 task 'watch', 'Watch src directory and build the .js files', (options) ->
-  console.log('Watching Coffee in src and compiling to lib')
-  cp = exec "coffee --watch --output ./lib/ ./src/"
+  console.log('Watching Coffee in src and compiling to lib/validoc')
+  cp = exec "coffee --watch --output ./lib/validoc ./src/"
   cp.stdout.pipe(process.stdout)
   cp.stderr.pipe(process.stderr)
 
