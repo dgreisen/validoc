@@ -84,6 +84,19 @@ describe "ContainerField", ->
     expect(field.getFields()[0].getValue()).toBe(undefined)
     expect(field.getFields()[1].getValue()).toBe(undefined)
 
+  it "should allow key/values not described by its schema, by default", ->
+    @vals.extraField = true
+    field = new fields.ContainerField({name:"test", schema: @subSchema}, {value: @vals})
+    actual = field.isValid()
+    expect(actual).toBe(true)
+
+  it "should only allow key/values described by its schema, when fullyDescribed is true", ->
+    @vals.extraField = true
+    field = new fields.ContainerField({name:"test", schema: @subSchema}, {value: @vals, fullyDescribed: true})
+    actual = field.isValid()
+    expect(actual).toBe(false)
+
+
 describe "HashField", ->
   beforeEach ->
     @subSchema = {field: "CharField", name: "sub", minLength: 5}

@@ -79,7 +79,7 @@ class Field
 
     * `value`: the current value of the field
     * `initialValue`: the initial value of the field (useful for custom validation)
-
+    * `fullyDescribed`: whether the schema must fully describe the value. (default: false)
 
   You are probably doing something wrong if you access an attribute
   that starts with an underscore. You should **never** directly modify

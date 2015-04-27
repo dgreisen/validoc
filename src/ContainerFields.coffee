@@ -133,6 +133,7 @@ class ContainerField extends BaseContainerField
   default: {}
   errorMessages:
     invalid: utils._i('%s must be a hash')
+    undescribed: utils._i('%s is not allowed')
 
   _createChildFields: () ->
     value = @getValue()
@@ -147,9 +148,13 @@ class ContainerField extends BaseContainerField
       fields.genField(childSchema, opts, this)
     )
 
-  validate: (value) ->
+  validate: (value, initialValue, opts) ->
     if not utils.isHash(value)
       throw utils.ValidationError(@errorMessages.invalid, "invalid", JSON.stringify(value))
+    else if opts.fullyDescribed
+      for k of value
+        if k not of @schema
+          throw utils.ValidationError(@errorMessages.undescribed, "undescribed", k)
     else
       return super(value)
 
