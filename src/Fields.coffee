@@ -197,7 +197,7 @@ class Field
     ###
     if @_valid? then return @_valid
     # call the various validators
-    value = @getValue()
+    value = @getValueForCleaning()
     initialValue = @getInitialValue()
     value = @_catchErrors(@toJavascript, value, initialValue, @opts)
     value = @_catchErrors(@validate, value, initialValue, @opts) if (!@_errors.length)
@@ -249,6 +249,10 @@ class Field
   getValue: () ->
     ### You should not have to override this in Field subclasses ###
     return @_value
+
+  getValueForCleaning: () ->
+    ### Should only need to be overridden by container subclasses ###
+    return @getValue()
 
   getInitialValue: () ->
     return @_initialValue

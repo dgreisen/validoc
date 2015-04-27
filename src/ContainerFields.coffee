@@ -178,6 +178,11 @@ class ContainerField extends BaseContainerField
     else
       return end
 
+  getValueForCleaning: () ->
+    value = {}
+    for field in @_fields
+      value[field.name] = field.getValueForCleaning()
+    return value
 
 
 class HashField extends ContainerField
@@ -274,6 +279,9 @@ class ListField extends BaseContainerField
       return @_parent.getPath(this).concat(end)
     else
       return end
+
+  getValueForCleaning: () ->
+    @_fields.map((field) -> field.getValueForCleaning())
 
 
 fields.BaseContainerField = BaseContainerField

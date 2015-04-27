@@ -96,6 +96,13 @@ describe "ContainerField", ->
     actual = field.isValid()
     expect(actual).toBe(false)
 
+  it "should return only data that has been cleaned by the schema, even when fullyDescribed == false", ->
+    @vals.extraField = true
+    field = new fields.ContainerField({name:"test", schema: @subSchema}, {value: @vals})
+    actual = field.getClean()
+    expect(actual).toEqual({sub: "hello world", sub2: 5})
+
+
 
 describe "HashField", ->
   beforeEach ->
