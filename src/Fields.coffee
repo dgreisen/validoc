@@ -89,9 +89,8 @@ class Field
   name: undefined
   # whether the current field is required
   required: true
-  # the current value of the field
   # kind definition for widget to display (eg { kind: "widget.Widget"}, or simply the string name of the widget kind)
-  widget: "widgets.Widget",
+  defaultWidget: "TextInput",
   # the default value of the field. if the set value is undefined, the value will changed to the default value
   default: undefined
 
@@ -289,7 +288,7 @@ class CharField extends Field
    * `maxLength`: The maximum length of the string (optional)
    * `minLength`: The minimum length of the string (optional)
 
-  Default widget: Widget
+  Default widget: TextInput
   ###
   # The maximum length of the string (optional)
   maxLength: undefined
@@ -316,7 +315,7 @@ class IntegerField extends Field
    * `maxValue`: Maximum value of integer
    * `minValue`: Minimum value of integer
 
-  Default widget: Widget
+  Default widget: TextInput
   ###
   # Maximum value of integer
   maxValue: undefined
@@ -351,7 +350,7 @@ class FloatField extends IntegerField
     * `minDecimals`: Minimum number of digits after the decimal point
     * `maxDigits`: Maximum number of total digits before and after the decimal point
   
-  Default widget: Widget
+  Default widget: TextInput
   ###
   # Maximum number of digits after the decimal point
   maxDecimals: undefined,
@@ -382,7 +381,7 @@ class RegexField extends Field
     * `regex`: the compiled regex to test against
     * `errorMessage`: the error message to display when the regex fails
   
-  Default widget: Widget
+  Default widget: TextInput
   ###
   # the compiled regex to test against.
   regex: undefined,
@@ -404,9 +403,9 @@ class EmailField extends RegexField
 
     * None
   
-  Default widget: EmailWidget
+  Default widget: EmailInput
   ###
-  widget: "widgets.EmailWidget"
+  widget: "EmailInput"
   validators: [new validators.EmailValidator()]
 
 class BooleanField extends Field
@@ -417,9 +416,9 @@ class BooleanField extends Field
 
     * none
   
-  Default widget: CheckboxWidget
+  Default widget: CheckboxInput
   ###
-  widget: "widgets.CheckboxWidget"
+  widget: "CheckboxInput"
   # @protected
   toJavascript: (value) ->
     if typeof(value) == "string" and value.toLowerCase() in ["false", "0"]
@@ -438,7 +437,7 @@ class NullBooleanField extends BooleanField
 
     * none
   
-  Default widget: CheckboxWidget
+  Default widget: CheckboxInput
   ###
   toJavascript: (value) ->
     if value in [true, "True", "1"]
@@ -459,9 +458,9 @@ class ChoiceField extends Field
 
     * `choices`: Array of 2-arrays specifying valid choices. if 2-arrays, first value is value, second is display. create optgroups by setting display If display value to a 2-array. MUST USE `setChoices`.
   
-  Default widget: ChoiceWidget
+  Default widget: Select
   ###
-  widget: "widgets.ChoiceWidget"
+  widget: "Select"
   # Array of 2-arrays specifying valid choices. if 2-arrays, first value is value, second is display. create optgroups by setting display If display value to a 2-array. MUST USE SETTER.
   choices: []
   errorMessages:
