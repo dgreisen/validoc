@@ -276,6 +276,24 @@ class Field
     ### get a field given a path ###
     return if path.length > 0 then undefined else this      
 
+  getWidget: () ->
+    ### return widget data - either a hash used to create a widget, or a widget class ###
+    widget = @widget or @defaultWidget
+    if (_.isFunction(widget.render) or _.isString(widget))
+      widget = {widget: widget}
+    widget.label ?= @name
+    return widget
+
+  updateValue: (path, value) ->
+    ### return a new field with value at path set to value ###
+    schema = _.clone(@_rawSchema)
+    currentValue = @getValue()
+
+    opts = _.clone(@_rawOpts)
+    opts.initialValue = @getInitialValue()
+    opts.value = utils.updateObjectAtPath(currentValue, path, value)
+
+    fields.genField(schema, opts, parent)
   _throwErrorIfInvalid: () ->
     if not @isValid() then throw @_errors
 

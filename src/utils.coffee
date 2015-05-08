@@ -46,6 +46,24 @@ objPop = (obj, key) ->
 isHash = (obj) ->
   _.isObject(obj) and not _.isArray(obj)
 
+updateObjectAtPath = (obj, path, val) ->
+  ###
+  does not modify obj.
+  return a new obj that is identical to the old obj,
+  except that the value and path has been replace with val
+  ###
+  if _.isEmpty(path)
+    return val
+  part = path.shift()
+  newSubObj = updateObjectAtPath(obj[part], path, val)
+
+  if newSubObj == obj[part]
+    out = obj
+  else
+    out = _.clone(obj)
+    out[part] = newSubObj
+  return out
+
 utils = 
   _i: _i
   interpolate: interpolate
@@ -53,6 +71,7 @@ utils =
   strip: strip
   objPop: objPop
   isHash: isHash
+  updateObjectAtPath: updateObjectAtPath
 if window?
   window.validoc = 
     utils: utils
